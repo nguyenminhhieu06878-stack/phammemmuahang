@@ -122,3 +122,24 @@ Hệ thống hỗ trợ 7 vai trò với quyền hạn riêng biệt:
 ## License
 
 Demo project - For evaluation purposes only
+
+---
+
+## 🚀 Deploy lên Vercel
+
+### Quick Start
+```bash
+npm i -g vercel
+vercel login
+vercel
+```
+
+📖 **Tài liệu đầy đủ**: [DOCS-INDEX.md](./DOCS-INDEX.md)
+
+**Hướng dẫn nhanh**:
+- [DEPLOY-QUICK.md](./DEPLOY-QUICK.md) - Deploy trong 3 bước
+- [DEPLOYMENT-CHECKLIST.md](./DEPLOYMENT-CHECKLIST.md) - Checklist chi tiết
+- [DATABASE-SETUP.md](./DATABASE-SETUP.md) - Setup PostgreSQL
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Xử lý lỗi
+
+**Lưu ý**: Phải chuyển từ SQLite sang PostgreSQL để deploy production.
