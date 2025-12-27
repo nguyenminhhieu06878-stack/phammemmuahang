@@ -1,0 +1,406 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // admin, truong_phong_mh, nhan_vien_mh, ke_toan, giam_doc, giam_sat, ncc, phong_os
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdRequests      MaterialRequest[]    @relation("CreatedBy")
+  approvals            Approval[]
+  supplierProfile      Supplier?
+  evaluations          SupplierEvaluation[]
+  notifications        Notification[]
+  createdQuotas        MaterialQuota[]      @relation("CreatedBy")
+  issuedStocks         StockIssue[]         @relation("IssuedBy")
+  receivedStocks       StockIssue[]         @relation("ReceivedBy")
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  status      String   @default("active") // active, completed, cancelled
+  startDate   DateTime
+  endDate     DateTime?
+  budget      Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  materialRequests MaterialRequest[]
+  purchaseOrders   PurchaseOrder[]
+  quotas           MaterialQuota[]
+}
+
+model MaterialCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  materials Material[]
+}
+
+model Material {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  unit        String   // m3, m2, kg, cái, bộ...
+  categoryId  Int
+  refPrice    Float?   // Giá tham khảo
+  stock       Int      @default(0)
+  minStock    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  category         MaterialCategory      @relation(fields: [categoryId], references: [id])
+  requestItems     MaterialRequestItem[]
+  quotationItems   QuotationItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  quotas           MaterialQuota[]
+  stockIssueItems  StockIssueItem[]
+  rfqItems         RFQItem[]
+}
+
+model MaterialRequest {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  projectId   Int
+  createdById Int
+  description String?
+  status      String   @default("pending") // pending, approved, rejected, processing
+  priority    String   @default("normal") // low, normal, high, urgent
+  needByDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project      Project               @relation(fields: [projectId], references: [id])
+  createdBy    User                  @relation("CreatedBy", fields: [createdById], references: [id])
+  items        MaterialRequestItem[]
+  approvals    Approval[]
+  rfq          RFQ?
+  stockIssue   StockIssue?
+}
+
+model MaterialRequestItem {
+  id                Int      @id @default(autoincrement())
+  requestId         Int
+  materialId        Int
+  quantity          Float
+  note              String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  request  MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  material Material        @relation(fields: [materialId], references: [id])
+}
+
+model Approval {
+  id          Int      @id @default(autoincrement())
+  requestId   Int?
+  poId        Int?
+  approverId  Int?
+  level       Int      // 1, 2, 3
+  status      String   @default("pending") // pending, approved, rejected
+  comment     String?
+  signature   String?  // Demo signature (text or base64 image)
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  request   MaterialRequest? @relation(fields: [requestId], references: [id])
+  po        PurchaseOrder?   @relation(fields: [poId], references: [id])
+  approver  User?            @relation(fields: [approverId], references: [id])
+}
+
+model Supplier {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  code        String   @unique
+  companyName String
+  taxCode     String?
+  address     String?
+  phone       String
+  email       String
+  contactPerson String?
+  rating      Float    @default(0)
+  status      String   @default("active") // active, inactive, blacklist
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User                   @relation(fields: [userId], references: [id])
+  quotations  Quotation[]
+  purchaseOrders PurchaseOrder[]
+  evaluations SupplierEvaluation[]
+}
+
+model RFQ {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  requestId   Int      @unique
+  title       String
+  description String?
+  deadline    DateTime
+  status      String   @default("sent") // sent, closed, cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  request    MaterialRequest @relation(fields: [requestId], references: [id])
+  items      RFQItem[]
+  quotations Quotation[]
+}
+
+model RFQItem {
+  id         Int      @id @default(autoincrement())
+  rfqId      Int
+  materialId Int
+  quantity   Float    // Số lượng cần mua (đã trừ tồn kho)
+  note       String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  rfq      RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+}
+
+model Quotation {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  rfqId           Int
+  supplierId      Int
+  totalAmount     Float
+  deliveryTime    Int      // số ngày
+  paymentTerms    String
+  note            String?
+  status          String   @default("pending") // pending, selected, rejected
+  validUntil      DateTime
+  submittedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  rfq      RFQ             @relation(fields: [rfqId], references: [id])
+  supplier Supplier        @relation(fields: [supplierId], references: [id])
+  items    QuotationItem[]
+  po       PurchaseOrder?
+}
+
+model QuotationItem {
+  id          Int      @id @default(autoincrement())
+  quotationId Int
+  materialId  Int
+  quantity    Float
+  unitPrice   Float
+  amount      Float
+  note        String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  material  Material  @relation(fields: [materialId], references: [id])
+}
+
+model PurchaseOrder {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  projectId       Int
+  quotationId     Int      @unique
+  supplierId      Int
+  totalAmount     Float
+  vatAmount       Float    @default(0)
+  grandTotal      Float
+  deliveryAddress String
+  deliveryDate    DateTime
+  paymentTerms    String
+  status          String   @default("pending") // pending, approved, sent, in_transit, delivered, completed, cancelled
+  note            String?
+  estimatedDelivery DateTime? // Ngày giao hàng dự kiến
+  actualDelivery    DateTime? // Ngày giao hàng thực tế
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  project    Project             @relation(fields: [projectId], references: [id])
+  quotation  Quotation           @relation(fields: [quotationId], references: [id])
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  items      PurchaseOrderItem[]
+  approvals  Approval[]
+  delivery   Delivery?
+  payment    Payment?
+  trackings  DeliveryTracking[]
+}
+
+model PurchaseOrderItem {
+  id         Int      @id @default(autoincrement())
+  poId       Int
+  materialId Int
+  quantity   Float
+  unitPrice  Float
+  amount     Float
+  createdAt  DateTime @default(now())
+
+  // Relations
+  po       PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  material Material      @relation(fields: [materialId], references: [id])
+}
+
+model Delivery {
+  id              Int      @id @default(autoincrement())
+  poId            Int      @unique
+  deliveryDate    DateTime
+  receivedBy      String
+  actualQuantity  String   // JSON string: {materialId: quantity}
+  qualityStatus   String   @default("ok") // ok, ng, partial
+  photos          String?  // JSON array of photo URLs
+  note            String?
+  status          String   @default("pending") // pending, accepted, rejected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  po PurchaseOrder @relation(fields: [poId], references: [id])
+}
+
+model Payment {
+  id              Int      @id @default(autoincrement())
+  poId            Int      @unique
+  amount          Float
+  paymentMethod   String   // bank_transfer, cash, check
+  paymentType     String   // prepay, postpay
+  status          String   @default("pending") // pending, approved, paid, cancelled
+  paidAt          DateTime?
+  invoiceNumber   String?
+  invoiceFile     String?  // URL to uploaded invoice file
+  vatInvoiceFile  String?  // URL to VAT invoice
+  deliveryNote    String?  // Biên bản giao nhận
+  acceptanceNote  String?  // Biên bản nghiệm thu
+  uncNumber       String?  // Số ủy nhiệm chi
+  uncFile         String?  // File UNC
+  approvedBy      Int?     // Kế toán trưởng phê duyệt
+  approvedAt      DateTime?
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  po PurchaseOrder @relation(fields: [poId], references: [id])
+}
+
+model SupplierEvaluation {
+  id          Int      @id @default(autoincrement())
+  supplierId  Int
+  evaluatorId Int
+  poId        Int
+  priceScore  Int      // 1-5
+  qualityScore Int     // 1-5
+  deliveryScore Int    // 1-5
+  supportScore Int     // 1-5
+  avgScore    Float
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  supplier  Supplier @relation(fields: [supplierId], references: [id])
+  evaluator User     @relation(fields: [evaluatorId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  type      String   // info, warning, success, error
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+model StockIssue {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  requestId   Int      @unique
+  issuedBy    Int
+  receivedBy  Int?     // Người nhận hàng (Giám sát)
+  note        String?
+  status      String   @default("pending") // pending, in_transit, completed, cancelled
+  issuedAt    DateTime?
+  receivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  request  MaterialRequest @relation(fields: [requestId], references: [id])
+  issuer   User            @relation("IssuedBy", fields: [issuedBy], references: [id])
+  receiver User?           @relation("ReceivedBy", fields: [receivedBy], references: [id])
+  items    StockIssueItem[]
+}
+
+model StockIssueItem {
+  id          Int      @id @default(autoincrement())
+  issueId     Int
+  materialId  Int
+  quantity    Float
+  note        String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  issue    StockIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  material Material   @relation(fields: [materialId], references: [id])
+}
+
+model MaterialQuota {
+  id           Int      @id @default(autoincrement())
+  projectId    Int
+  materialId   Int
+  maxQuantity  Float    // Định mức tối đa
+  usedQuantity Float    @default(0) // Đã sử dụng
+  createdById  Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  project   Project  @relation(fields: [projectId], references: [id])
+  material  Material @relation(fields: [materialId], references: [id])
+  createdBy User     @relation("CreatedBy", fields: [createdById], references: [id])
+
+  @@unique([projectId, materialId])
+}
+
+model DeliveryTracking {
+  id          Int      @id @default(autoincrement())
+  poId        Int
+  status      String   // confirmed, preparing, shipped, in_transit, arrived, delayed
+  location    String?  // Vị trí hiện tại
+  note        String?
+  isDelayed   Boolean  @default(false)
+  delayReason String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  po PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+}
