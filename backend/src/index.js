@@ -60,9 +60,9 @@ app.use((err, req, res, next) => {
 });
 
 // For Vercel serverless
-if (process.env.VERCEL) {
-  export default app;
-} else {
+export default app;
+
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
   });

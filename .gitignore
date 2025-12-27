@@ -39,3 +39,4 @@ lerna-debug.log*
 
 # Uploads
 uploads/
+.vercel
