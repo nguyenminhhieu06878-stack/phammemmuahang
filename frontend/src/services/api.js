@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: 'https://backend-nine-eta-53.vercel.app/api',
 });
 
 api.interceptors.request.use((config) => {
