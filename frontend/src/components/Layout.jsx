@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout as AntLayout, Menu, Avatar, Dropdown, Badge } from 'antd';
+import { Layout as AntLayout, Menu, Avatar, Dropdown, Badge, Drawer } from 'antd';
 import {
   DashboardOutlined,
   ProjectOutlined,
@@ -13,6 +13,7 @@ import {
   LogoutOutlined,
   BellOutlined,
   ControlOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../store/authStore';
 
@@ -20,9 +21,20 @@ const { Header, Sider, Content } = AntLayout;
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getRoleLabel = (role) => {
     const roleLabels = {
@@ -115,6 +127,22 @@ function Layout() {
 
   const menuItems = getMenuItemsByRole(user?.role);
 
+  const handleMenuClick = (key) => {
+    navigate(key);
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+    }
+  };
+
+  const menuComponent = (
+    <Menu
+      mode="inline"
+      selectedKeys={[location.pathname]}
+      items={menuItems}
+      onClick={({ key }) => handleMenuClick(key)}
+    />
+  );
+
   const userMenuItems = [
     {
       key: 'profile',
@@ -137,39 +165,65 @@ function Layout() {
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        theme="light"
-        width={250}
-      >
-        <div
-          style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: collapsed ? 16 : 20,
-            fontWeight: 'bold',
-            color: '#1890ff',
-          }}
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          theme="light"
+          width={250}
+          breakpoint="lg"
         >
-          {collapsed ? 'QL' : 'Quản lý Mua hàng'}
-        </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-        />
-      </Sider>
+          <div
+            style={{
+              height: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: collapsed ? 16 : 20,
+              fontWeight: 'bold',
+              color: '#1890ff',
+            }}
+          >
+            {collapsed ? 'QL' : 'Quản lý Mua hàng'}
+          </div>
+          {menuComponent}
+        </Sider>
+      )}
+
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          onClose={() => setMobileDrawerOpen(false)}
+          open={mobileDrawerOpen}
+          bodyStyle={{ padding: 0 }}
+          width={250}
+        >
+          <div
+            style={{
+              height: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#1890ff',
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
+            Quản lý Mua hàng
+          </div>
+          {menuComponent}
+        </Drawer>
+      )}
 
       <AntLayout>
         <Header
           style={{
             background: '#fff',
-            padding: '0 24px',
+            padding: isMobile ? '0 16px' : '0 24px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -177,21 +231,29 @@ function Layout() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 18, fontWeight: 500 }}>
-              {menuItems.find(item => item.key === location.pathname)?.label || 'Dashboard'}
+            {isMobile && (
+              <MenuOutlined
+                style={{ fontSize: 20, cursor: 'pointer' }}
+                onClick={() => setMobileDrawerOpen(true)}
+              />
+            )}
+            <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 500 }}>
+              {isMobile ? '' : (menuItems.find(item => item.key === location.pathname)?.label || 'Dashboard')}
             </div>
-            <div style={{ 
-              fontSize: 12, 
-              padding: '2px 8px', 
-              background: '#1890ff', 
-              color: '#fff', 
-              borderRadius: 4 
-            }}>
-              {getRoleLabel(user?.role)}
-            </div>
+            {!isMobile && (
+              <div style={{ 
+                fontSize: 12, 
+                padding: '2px 8px', 
+                background: '#1890ff', 
+                color: '#fff', 
+                borderRadius: 4 
+              }}>
+                {getRoleLabel(user?.role)}
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 24 }}>
             <Badge count={0}>
               <BellOutlined style={{ fontSize: 20, cursor: 'pointer' }} />
             </Badge>
@@ -199,13 +261,13 @@ function Layout() {
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <Avatar icon={<UserOutlined />} />
-                <span>{user?.name}</span>
+                {!isMobile && <span>{user?.name}</span>}
               </div>
             </Dropdown>
           </div>
         </Header>
 
-        <Content style={{ margin: '24px', background: '#f0f2f5' }}>
+        <Content style={{ margin: isMobile ? '16px' : '24px', background: '#f0f2f5' }}>
           <Outlet />
         </Content>
       </AntLayout>
